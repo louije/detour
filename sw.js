@@ -1,4 +1,4 @@
-const CACHE = 'detour-v1';
+const CACHE = 'detour-v2';
 const ASSETS = [
   './',
   './index.html',

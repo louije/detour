@@ -36,16 +36,15 @@
   .levels button:hover,.levels button:active{background:var(--ink);color:var(--panel);}
   .levels button span{font-size:11px;letter-spacing:.08em;text-transform:uppercase;opacity:.7;}
   #menu .foot{margin-top:26px;font-size:10.5px;letter-spacing:.03em;color:var(--soft);text-align:center;max-width:330px;line-height:1.5;}
-  #game .top{flex:0 0 auto;display:flex;align-items:center;justify-content:space-between;gap:10px;padding:13px clamp(12px,4vw,30px);}
-  .top .btn{font-family:inherit;font-size:11px;letter-spacing:.05em;border:1px solid var(--ink);background:transparent;color:var(--ink);
-    padding:8px 14px;border-radius:999px;cursor:pointer;transition:.15s;}
-  .top .btn:hover,.top .btn:active{background:var(--ink);color:var(--panel);}
-  .top .meta{font-size:11px;letter-spacing:.08em;color:var(--soft);text-transform:uppercase;display:flex;gap:14px;white-space:nowrap;}
-  .top .meta b{color:var(--ink);font-weight:500;}
-  .top .rgrp{display:flex;gap:8px;}
+  #game .bar{flex:0 0 auto;display:flex;align-items:center;justify-content:space-between;gap:10px;padding:11px clamp(10px,3vw,24px);}
+  .bar .btn{font-family:inherit;font-size:11px;letter-spacing:.05em;border:1px solid var(--ink);background:transparent;color:var(--ink);
+    padding:9px 16px;border-radius:999px;cursor:pointer;transition:.15s;}
+  .bar .btn:hover,.bar .btn:active{background:var(--ink);color:var(--panel);}
+  .bar .meta{font-size:11px;letter-spacing:.08em;color:var(--soft);text-transform:uppercase;display:flex;gap:14px;white-space:nowrap;}
+  .bar .meta b{color:var(--ink);font-weight:500;}
   #game main{flex:1 1 auto;position:relative;display:flex;min-height:0;}
   canvas{touch-action:none;display:block;width:100%;height:100%;}
-  #next{position:absolute;left:50%;bottom:26px;transform:translateX(-50%) translateY(14px);
+  #next{position:absolute;left:50%;bottom:18px;transform:translateX(-50%) translateY(14px);
     font-family:inherit;font-size:13px;letter-spacing:.04em;border:1px solid var(--ink);background:var(--ink);color:var(--panel);
     padding:13px 26px;border-radius:999px;cursor:pointer;opacity:0;pointer-events:none;transition:opacity .4s,transform .4s;z-index:5;
     box-shadow:0 10px 30px rgba(0,0,0,.18);}
@@ -57,8 +56,8 @@
     <h1>Détour</h1>
     <div class="tag">Reliez · sans croiser · par-dessus le mur</div>
     <div class="levels" id="levels">
-      <button data-p="4">Facile<span>4 paires</span></button>
-      <button data-p="6">Moyen<span>6 paires</span></button>
+      <button data-p="3">Facile<span>3 paires</span></button>
+      <button data-p="5">Moyen<span>5 paires</span></button>
       <button data-p="8">Corsé<span>8 paires</span></button>
       <button data-p="10">Expert<span>10 paires</span></button>
     </div>
@@ -66,15 +65,18 @@
   </section>
 
   <section id="game" class="screen hidden">
-    <div class="top">
+    <div class="bar top">
       <button class="btn" id="back">‹ Menu</button>
       <div class="meta"><span>Restantes&nbsp;<b id="left">·</b></span><span>Nœuds&nbsp;<b id="score">·</b></span></div>
-      <div class="rgrp"><button class="btn" id="clearbtn">Effacer</button><button class="btn" id="newbtn">Nouveau</button></div>
     </div>
     <main id="stage">
       <canvas id="c"></canvas>
       <button id="next">On continue →</button>
     </main>
+    <div class="bar bottom">
+      <button class="btn" id="clearbtn">Effacer</button>
+      <button class="btn" id="newbtn">Nouveau</button>
+    </div>
   </section>
 
 <script>
@@ -102,11 +104,11 @@ function regPoly(N,rot,R){
       return{p:{x:x.a.x+(x.b.x-x.a.x)*f,y:x.a.y+(x.b.y-x.a.y)*f},n:{x:x.nx,y:x.ny}};}d-=x.len;}
       const x=e[e.length-1];return{p:x.b,n:{x:x.nx,y:x.ny}};}};}
 function makeShape(kind){switch(kind){
-  case 'square':  return regPoly(4,Math.PI/4,0.37);
-  case 'triangle':return regPoly(3,-Math.PI/2,0.38);
-  case 'pentagon':return regPoly(5,-Math.PI/2,0.37);
-  case 'hexagon': return regPoly(6,Math.PI/6,0.37);
-  default:        return circle(0.35);}}
+  case 'square':  return regPoly(4,Math.PI/4,0.40);
+  case 'triangle':return regPoly(3,-Math.PI/2,0.41);
+  case 'pentagon':return regPoly(5,-Math.PI/2,0.40);
+  case 'hexagon': return regPoly(6,Math.PI/6,0.40);
+  default:        return circle(0.38);}}
 const SHAPES=['circle','square','triangle','pentagon','hexagon'];
 
 /* ===== graph + generation ===== */
@@ -172,8 +174,8 @@ function entangle(g,lvl){const byP={};lvl.dots.forEach(d=>{(byP[d.pid]=byP[d.pid
   for(let i=0;i<segs.length;i++){sumLen+=segs[i].len;minLen=Math.min(minLen,segs[i].len);
     for(let j=i+1;j<segs.length;j++)if(segI(segs[i].a,segs[i].b,segs[j].a,segs[j].b))cross++;}
   return {cross,minLen,sumLen};}
-const CFG={4:{gridN:8,nExt:1,extMin:3,extMax:7,lenMin:5,lenMax:10},
-           6:{gridN:9,nExt:2,extMin:3,extMax:9,lenMin:6,lenMax:12},
+const CFG={3:{gridN:7,nExt:1,extMin:3,extMax:6,lenMin:4,lenMax:8},
+           5:{gridN:8,nExt:2,extMin:3,extMax:8,lenMin:5,lenMax:10},
            8:{gridN:10,nExt:4,extMin:3,extMax:9,lenMin:6,lenMax:12},
            10:{gridN:11,nExt:5,extMin:3,extMax:9,lenMin:6,lenMax:13}};
 function generateBest(pairs,kind){
@@ -191,7 +193,7 @@ function generateBest(pairs,kind){
 /* ===== state ===== */
 let W=600,H=600,PS=600,OX=0,OY=0,dpr=1;
 let level=null,shape=null,conns=new Map(),pairsTarget=6,needRender=true;
-const EPS=0.02,dotR=0.018,hitR=0.046,minStep=0.006;
+const EPS=0.02,dotR=0.030,hitR=0.080,minStep=0.006;
 let particles=[],ghosts=[],shakeT=0,animating=false;
 const X=n=>OX+n*PS, Y=n=>OY+n*PS;
 

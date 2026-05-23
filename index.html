@@ -49,6 +49,20 @@
     padding:13px 26px;border-radius:999px;cursor:pointer;opacity:0;pointer-events:none;transition:opacity .4s,transform .4s;z-index:5;
     box-shadow:0 10px 30px rgba(0,0,0,.18);}
   #next.show{opacity:1;transform:translateX(-50%) translateY(0);pointer-events:auto;}
+  #einstein{position:absolute;right:clamp(8px,3vw,28px);bottom:0;z-index:6;
+    display:flex;align-items:flex-end;gap:10px;pointer-events:none;
+    transform:translateY(110%);transition:transform .85s cubic-bezier(.18,.84,.34,1);}
+  #einstein.show{transform:translateY(0);pointer-events:auto;}
+  #einstein .figure{width:clamp(110px,22vw,160px);height:auto;display:block;
+    filter:drop-shadow(0 6px 16px rgba(0,0,0,.18));}
+  #einstein .bubble{background:var(--panel);border:1.5px solid var(--ink);border-radius:18px;
+    padding:13px 16px;font-family:"Fraunces",Georgia,serif;font-style:italic;font-size:13.5px;
+    line-height:1.4;max-width:min(58vw,260px);margin-bottom:46px;color:var(--ink);
+    box-shadow:0 10px 28px rgba(0,0,0,.18);position:relative;}
+  #einstein .bubble::after{content:"";position:absolute;right:-9px;bottom:18px;width:14px;height:14px;
+    background:var(--panel);border-right:1.5px solid var(--ink);border-bottom:1.5px solid var(--ink);
+    transform:rotate(-45deg);border-radius:0 0 3px 0;}
+  #einstein .bubble b{font-weight:600;font-style:normal;font-family:"Spline Sans Mono",ui-monospace,monospace;font-size:12px;}
 </style>
 </head>
 <body>
@@ -72,6 +86,35 @@
     <main id="stage">
       <canvas id="c"></canvas>
       <button id="next">On continue →</button>
+      <div id="einstein" aria-hidden="true">
+        <div class="bubble" id="einsteinText"></div>
+        <svg class="figure" viewBox="0 0 200 240" aria-hidden="true">
+          <g stroke="#22201b" stroke-linejoin="round" stroke-linecap="round" fill="none">
+            <path d="M5,240 Q15,165 55,150 L145,150 Q185,165 195,240 Z" fill="#22201b" stroke-width="2"/>
+            <path d="M78,150 L100,178 L122,150" fill="#f4efe3" stroke-width="2"/>
+            <path d="M85,166 L100,174 L115,166 L113,188 L100,180 L87,188 Z" fill="#22201b" stroke-width="1.5"/>
+            <path d="M28,118 C18,72 42,38 72,32 C82,16 102,14 116,24 C132,14 158,22 168,44 C196,58 200,98 178,120 C194,130 184,156 164,150 L150,148 Q122,158 100,156 Q78,158 50,148 L36,150 C16,156 6,130 22,120 C10,108 18,92 28,118 Z" fill="#f4efe3" stroke-width="2.5"/>
+            <path d="M28,72 L14,58" stroke-width="2.5"/>
+            <path d="M42,48 L32,32" stroke-width="2.5"/>
+            <path d="M62,32 L60,18" stroke-width="2.5"/>
+            <path d="M138,32 L140,18" stroke-width="2.5"/>
+            <path d="M158,48 L168,32" stroke-width="2.5"/>
+            <path d="M172,72 L186,58" stroke-width="2.5"/>
+            <ellipse cx="56" cy="124" rx="6" ry="9" fill="#e9e2d2" stroke-width="2.5"/>
+            <ellipse cx="144" cy="124" rx="6" ry="9" fill="#e9e2d2" stroke-width="2.5"/>
+            <ellipse cx="100" cy="118" rx="44" ry="50" fill="#e9e2d2" stroke-width="2.5"/>
+            <path d="M71,100 Q83,92 96,102" stroke-width="5"/>
+            <path d="M104,102 Q117,92 129,100" stroke-width="5"/>
+            <circle cx="84" cy="114" r="3.5" fill="#22201b" stroke-width="0"/>
+            <circle cx="116" cy="114" r="3.5" fill="#22201b" stroke-width="0"/>
+            <circle cx="85.5" cy="112.5" r="1" fill="#f4efe3" stroke-width="0"/>
+            <circle cx="117.5" cy="112.5" r="1" fill="#f4efe3" stroke-width="0"/>
+            <path d="M97,124 Q93,142 99,146 Q105,146 103,142 L102,124" stroke-width="2"/>
+            <path d="M60,154 Q78,162 100,156 Q122,162 140,154 Q142,176 122,170 Q112,176 100,174 Q88,176 78,170 Q58,176 60,154 Z" fill="#f4efe3" stroke-width="2.5"/>
+            <path d="M94,166 Q100,169 106,166" stroke-width="1.5"/>
+          </g>
+        </svg>
+      </div>
     </main>
     <div class="bar bottom">
       <button class="btn" id="clearbtn">Effacer</button>
@@ -190,6 +233,47 @@ function generateBest(pairs,kind){
   return {dots,pairCount:best.lvl.pairCount,cross:best.cross,shape};
 }
 
+/* ===== Einstein ===== */
+const einsteinEl=document.getElementById('einstein'),einsteinTextEl=document.getElementById('einsteinText');
+let einsteinTimer=0;
+const E_OPEN=['Donnerwetter !','Wunderbar !','Ach so !','Mein Gott !','Magnifique !','Sehr élégant !','Tiens donc !','Mein lieber !'];
+const E_MID=[
+  '{n} graphes planaires soigneusement défaits, sans une arête qui croise.',
+  '{n} parties remportées, autant de chemins disjoints accumulés.',
+  'Vous voilà à {n} victoires — la topologie vous sourit.',
+  'Encore cinq nœuds démêlés ! {n} au total.',
+  '{n} casse-têtes vaincus, sans le moindre détour superflu.',
+  'Vous avez résolu {n} configurations planaires. Kuratowski applaudirait.',
+  'Cinq de plus — {n} chemins parfaits engrangés.',
+  '{n} victoires : vous avez écarté quelque {fact} arrangements possibles.',
+  'À {n} parties, votre intuition combinatoire ne flanche pas.',
+  '{n} graphes domestiqués. Le bestiaire planaire s\'enrichit.',
+];
+const E_CLOSE=[
+  'Ne croisez jamais ce qui peut être contourné.',
+  'L\'imagination est plus importante que le compteur.',
+  'Restez courbe — l\'espace-temps aussi.',
+  'Le hasard ne joue pas aux dés, mais vous jouez aux nœuds.',
+  'La simplicité est l\'élégance des courbes fermées.',
+  'Encore cinq, et je remonte vous féliciter.',
+  'Sehr gut — continuons.',
+  'On apprend en cherchant les détours.',
+];
+function einsteinFact(n){if(n<=0)return'1';
+  if(n<=12){let r=1;for(let i=2;i<=n;i++)r*=i;return r.toLocaleString('fr-FR');}
+  let lg=0;for(let i=2;i<=n;i++)lg+=Math.log10(i);
+  const exp=Math.floor(lg),mant=Math.pow(10,lg-exp).toFixed(2);
+  return mant+' × 10^'+exp;}
+function einsteinPick(a){return a[(Math.random()*a.length)|0];}
+function einsteinMsg(n){return [einsteinPick(E_OPEN),einsteinPick(E_MID),einsteinPick(E_CLOSE)].join(' ')
+  .replace(/\{n\}/g,n).replace(/\{fact\}/g,einsteinFact(n));}
+function showEinstein(n){einsteinTextEl.textContent=einsteinMsg(n);einsteinEl.classList.add('show');
+  clearTimeout(einsteinTimer);einsteinTimer=setTimeout(hideEinstein,8000);}
+function hideEinstein(){einsteinEl.classList.remove('show');clearTimeout(einsteinTimer);}
+einsteinEl.addEventListener('click',hideEinstein);
+function loadWins(){try{return parseInt(localStorage.getItem('detour:wins')||'0',10)||0;}catch(_){return 0;}}
+function saveWins(n){try{localStorage.setItem('detour:wins',String(n));}catch(_){ }}
+
 /* ===== state ===== */
 let W=600,H=600,PS=600,OX=0,OY=0,dpr=1;
 let level=null,shape=null,conns=new Map(),pairsTarget=6,needRender=true;
@@ -204,13 +288,13 @@ function segSeg(p1,p2,p3,p4){const d1=ccw(p3,p4,p1),d2=ccw(p3,p4,p2),d3=ccw(p1,p
 function crossesCommitted(a,b){for(const[,c]of conns){const p=c.points;for(let i=0;i<p.length-1;i++)if(segSeg(a,b,p[i],p[i+1]))return true;}return false;}
 
 /* ===== screens ===== */
-function showMenu(){gameEl.classList.add('hidden');menuEl.classList.remove('hidden');particles=[];ghosts=[];animating=false;nextBtn.classList.remove('show');}
+function showMenu(){gameEl.classList.add('hidden');menuEl.classList.remove('hidden');particles=[];ghosts=[];animating=false;nextBtn.classList.remove('show');hideEinstein();}
 function startGame(p){pairsTarget=p;menuEl.classList.add('hidden');gameEl.classList.remove('hidden');setTimeout(()=>{resize();newLevel();},30);}
 function newLevel(regen){
   try{
     if(regen!==false){const kind=SHAPES[(Math.random()*SHAPES.length)|0];
       const r=generateBest(pairsTarget,kind);level=r;shape=r.shape;scoreEl.textContent=r.cross;}
-    conns.clear();particles=[];ghosts=[];shakeT=0;animating=false;nextBtn.classList.remove('show');
+    conns.clear();particles=[];ghosts=[];shakeT=0;animating=false;nextBtn.classList.remove('show');hideEinstein();
     leftEl.textContent=level.pairCount;needRender=true;
   }catch(err){showError(err);}
 }
@@ -243,7 +327,9 @@ cv.addEventListener('pointerup',endDrag);
 cv.addEventListener('pointercancel',()=>{drag=null;needRender=true;});
 
 /* ===== win + particles ===== */
-function onWin(){burst();setTimeout(()=>nextBtn.classList.add('show'),700);}
+function onWin(){burst();setTimeout(()=>nextBtn.classList.add('show'),700);
+  const w=loadWins()+1;saveWins(w);
+  if(w%5===0)setTimeout(()=>showEinstein(w),1200);}
 function burst(){particles=[];
   for(const d of level.dots){const col=PALETTE[d.pid%PALETTE.length];
     for(let i=0;i<12;i++){const a=Math.random()*Math.PI*2,sp=0.09+Math.random()*0.14;

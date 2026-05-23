@@ -1,4 +1,4 @@
-const CACHE = 'detour-v3';
+const CACHE = 'detour-v4';
 const SHELL = [
   './',
   './index.html',

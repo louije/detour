@@ -193,7 +193,7 @@ function generateBest(pairs,kind){
 /* ===== state ===== */
 let W=600,H=600,PS=600,OX=0,OY=0,dpr=1;
 let level=null,shape=null,conns=new Map(),pairsTarget=6,needRender=true;
-const EPS=0.02,dotR=0.030,hitR=0.080,minStep=0.006;
+const EPS=0.02,dotR=0.030,hitR=0.095,minStep=0.006;
 let particles=[],ghosts=[],shakeT=0,animating=false;
 const X=n=>OX+n*PS, Y=n=>OY+n*PS;
 

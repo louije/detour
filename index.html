@@ -120,15 +120,41 @@ function makeShape(kind){switch(kind){
   default:        return circle(0.38);}}
 const SHAPES=['circle','square','triangle','pentagon','hexagon'];
 
+/* ===== obstacles ===== */
+function makeObstacle(cx,cy,r){return{cx,cy,r,sdf(p){return Math.hypot(p.x-cx,p.y-cy)-r;}};}
+function placeObstacles(shape,count){
+  const out=[];if(!count)return out;
+  const wallBuf=0.05;
+  for(let i=0;i<count;i++){let placed=false;
+    for(let t=0;t<120&&!placed;t++){
+      const cx=C.x+(Math.random()-0.5)*1.6*shape.ext;
+      const cy=C.y+(Math.random()-0.5)*1.6*shape.ext;
+      const r=0.052+Math.random()*0.022;
+      if(shape.sdf({x:cx,y:cy})>-(r+wallBuf))continue;
+      let ok=true;
+      for(const ob of out){if(Math.hypot(cx-ob.cx,cy-ob.cy)<r+ob.r+0.07){ok=false;break;}}
+      if(ok){out.push(makeObstacle(cx,cy,r));placed=true;}}
+  }
+  return out;
+}
+function edgeHitsObstacle(p1,p2,obstacles){if(!obstacles||!obstacles.length)return false;
+  for(let t=0.15;t<=0.85;t+=0.175){
+    const x=p1.x+t*(p2.x-p1.x),y=p1.y+t*(p2.y-p1.y);
+    for(const ob of obstacles)if(ob.sdf({x,y})<-0.005)return true;}
+  return false;}
+
 /* ===== graph + generation ===== */
 function buildGraph(shape,gridN){
   const ext=shape.ext,cell=2*ext/gridN,inset=cell*0.5;
+  const obstacles=shape.obstacles||[];
   const pos={},type={},adj={},grid={};
   const add=(id,p,t)=>{pos[id]=p;type[id]=t;adj[id]=[];};
-  const E=(a,b)=>{if(a&&b){adj[a].push(b);adj[b].push(a);}};
+  const inObstacle=p=>{for(const ob of obstacles)if(ob.sdf(p)<inset*0.5)return true;return false;};
+  const E=(a,b)=>{if(!a||!b)return;if(edgeHitsObstacle(pos[a],pos[b],obstacles))return;
+    adj[a].push(b);adj[b].push(a);};
   for(let i=0;i<gridN;i++)for(let j=0;j<gridN;j++){
     const p={x:C.x-ext+(i+0.5)*cell,y:C.y-ext+(j+0.5)*cell};
-    if(shape.sdf(p)<-inset){const id=`I${i}_${j}`;add(id,p,'I');grid[i+'_'+j]=id;}}
+    if(shape.sdf(p)<-inset&&!inObstacle(p)){const id=`I${i}_${j}`;add(id,p,'I');grid[i+'_'+j]=id;}}
   for(let i=0;i<gridN;i++)for(let j=0;j<gridN;j++){const id=grid[i+'_'+j];if(!id)continue;
     E(id,grid[(i+1)+'_'+j]);E(id,grid[i+'_'+(j+1)]);}
   const interior=Object.values(grid);
@@ -136,9 +162,11 @@ function buildGraph(shape,gridN){
   for(let k=0;k<T;k++){const b=shape.boundary(k/T),w=`W${k}`,r=`R${k}`;
     add(w,b.p,'W');add(r,{x:b.p.x+b.n.x*GAP,y:b.p.y+b.n.y*GAP},'R');
     wallOrder.push(w);ringIds.push(r);
-    let best=null,bd=(1.7*cell)**2;
-    for(const ii of interior){const dx=pos[ii].x-b.p.x,dy=pos[ii].y-b.p.y,q=dx*dx+dy*dy;if(q<bd){bd=q;best=ii;}}
-    if(best)E(w,best);E(w,r);}
+    // find nearest interior whose connector doesn't cross an obstacle
+    const ranked=interior.map(ii=>({ii,d2:(pos[ii].x-b.p.x)**2+(pos[ii].y-b.p.y)**2}))
+      .filter(o=>o.d2<(1.7*cell)**2).sort((a,b)=>a.d2-b.d2);
+    for(const o of ranked){if(!edgeHitsObstacle(pos[o.ii],b.p,obstacles)){E(w,o.ii);break;}}
+    E(w,r);}
   for(let k=0;k<T;k++)E(ringIds[k],ringIds[(k+1)%T]);
   return {pos,type,adj,M:T,ringIds,wallOrder};
 }
@@ -183,12 +211,14 @@ function entangle(g,lvl){const byP={};lvl.dots.forEach(d=>{(byP[d.pid]=byP[d.pid
   for(let i=0;i<segs.length;i++){sumLen+=segs[i].len;minLen=Math.min(minLen,segs[i].len);
     for(let j=i+1;j<segs.length;j++)if(segI(segs[i].a,segs[i].b,segs[j].a,segs[j].b))cross++;}
   return {cross,minLen,sumLen};}
-const CFG={3:{gridN:7,nExt:1,extMin:3,extMax:6,lenMin:4,lenMax:8,dotR:0.060},
-           5:{gridN:8,nExt:2,extMin:3,extMax:8,lenMin:5,lenMax:10,dotR:0.058},
-           8:{gridN:10,nExt:4,extMin:3,extMax:9,lenMin:6,lenMax:12},
-           10:{gridN:11,nExt:5,extMin:3,extMax:9,lenMin:6,lenMax:13}};
+const CFG={3:{gridN:7,nExt:1,extMin:3,extMax:6,lenMin:4,lenMax:8,dotR:0.060,obstacles:0},
+           5:{gridN:8,nExt:2,extMin:3,extMax:8,lenMin:5,lenMax:10,dotR:0.058,obstacles:1},
+           8:{gridN:10,nExt:4,extMin:3,extMax:9,lenMin:6,lenMax:12,obstacles:2},
+           10:{gridN:11,nExt:5,extMin:3,extMax:9,lenMin:6,lenMax:13,obstacles:3}};
 function generateBest(pairs,kind){
-  const base=CFG[pairs],shape=makeShape(kind),g=buildGraph(shape,base.gridN);
+  const base=CFG[pairs],shape=makeShape(kind);
+  shape.obstacles=placeObstacles(shape,base.obstacles||0);
+  const g=buildGraph(shape,base.gridN);
   const cfg=Object.assign({pairs},base);
   const dr=base.dotR||0.030,minD2=(2.15*dr)*(2.15*dr);
   let best=null;
@@ -252,7 +282,13 @@ const EPS=0.02,dotR=0.030,hitR=0.095,minStep=0.006;
 let particles=[],ghosts=[],shakeT=0,animating=false;
 const X=n=>OX+n*PS, Y=n=>OY+n*PS;
 
-function regionOf(p){const d=shape.sdf(p);return d<-EPS?'in':d>EPS?'out':'edge';}
+function regionOf(p){const d=shape.sdf(p);
+  if(d>EPS)return'out';
+  if(d<-EPS){
+    if(shape.obstacles)for(const ob of shape.obstacles){const od=ob.sdf(p);
+      if(od<-EPS)return'forbidden';if(Math.abs(od)<=EPS)return'edge';}
+    return'in';}
+  return'edge';}
 const ccw=(a,b,c)=>(c.y-a.y)*(b.x-a.x)-(b.y-a.y)*(c.x-a.x);
 function segSeg(p1,p2,p3,p4){const d1=ccw(p3,p4,p1),d2=ccw(p3,p4,p2),d3=ccw(p1,p2,p3),d4=ccw(p1,p2,p4);
   return((d1>0&&d2<0)||(d1<0&&d2>0))&&((d3>0&&d4<0)||(d3<0&&d4>0));}
@@ -285,7 +321,8 @@ cv.addEventListener('pointermove',e=>{if(!drag)return;e.preventDefault();
   if(Math.hypot(p.x-last.x,p.y-last.y)<minStep)return;
   if(crossesCommitted(last,p)){const pts=drag.points.slice();pts.push(p);drag=null;zap(pts);return;} // ZAP
   const r=regionOf(p);
-  if(r!=='edge'){if(drag.mode===null)drag.mode=r;else if(r!==drag.mode)drag.invalid=true;}
+  if(r==='forbidden')drag.invalid=true;
+  else if(r!=='edge'){if(drag.mode===null)drag.mode=r;else if(r!==drag.mode)drag.invalid=true;}
   drag.points.push(p);
   if(!drag.invalid&&drag.mode!==null){
     const d=dotAt(p);
@@ -347,6 +384,14 @@ function render(){
   if(shakeT>0.01){const m=PS*0.02*shakeT;ctx.translate((Math.random()-0.5)*m,(Math.random()-0.5)*m);}
   ctx.save();ctx.shadowColor='rgba(0,0,0,0.16)';ctx.shadowBlur=PS*0.03;ctx.shadowOffsetY=PS*0.008;
   ctx.fillStyle='#f4efe3';shapePath();ctx.fill();ctx.restore();
+  if(!einsteinShowing&&shape.obstacles&&shape.obstacles.length){
+    for(const ob of shape.obstacles){
+      ctx.save();ctx.shadowColor='rgba(0,0,0,0.18)';ctx.shadowBlur=PS*0.012;ctx.shadowOffsetY=PS*0.003;
+      ctx.fillStyle='#e3dac3';ctx.beginPath();ctx.arc(X(ob.cx),Y(ob.cy),ob.r*PS,0,7);ctx.fill();ctx.restore();
+      ctx.strokeStyle='#22201b';ctx.lineWidth=PS*0.0075;
+      ctx.beginPath();ctx.arc(X(ob.cx),Y(ob.cy),ob.r*PS,0,7);ctx.stroke();
+    }
+  }
   if(einsteinShowing&&eImgLoaded){
     ctx.save();shapePath();ctx.clip();ctx.globalAlpha=einsteinT;
     const ext=shape.ext,sz=2*ext*PS;

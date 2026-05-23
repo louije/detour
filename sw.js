@@ -1,7 +1,9 @@
-const CACHE = 'detour-v13';
+const CACHE = 'detour-v14';
 const SHELL = [
   './',
   './index.html',
+  './style.css',
+  './detour.js',
   './manifest.webmanifest',
   './assets/icon.svg',
   './assets/icon-32.png',

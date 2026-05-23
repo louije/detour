@@ -53,8 +53,9 @@
     display:flex;align-items:flex-end;gap:10px;pointer-events:none;
     transform:translateY(110%);transition:transform .85s cubic-bezier(.18,.84,.34,1);}
   #einstein.show{transform:translateY(0);pointer-events:auto;}
-  #einstein .figure{width:clamp(110px,22vw,160px);height:auto;display:block;
-    filter:drop-shadow(0 6px 16px rgba(0,0,0,.18));}
+  #einstein .figure{width:clamp(120px,24vw,170px);height:auto;display:block;
+    filter:drop-shadow(0 4px 12px rgba(0,0,0,.14));}
+  #einstein .figure img{width:100%;height:auto;display:block;}
   #einstein .bubble{background:var(--panel);border:1.5px solid var(--ink);border-radius:18px;
     padding:13px 16px;font-family:"Fraunces",Georgia,serif;font-style:italic;font-size:13.5px;
     line-height:1.4;max-width:min(58vw,260px);margin-bottom:46px;color:var(--ink);
@@ -88,32 +89,10 @@
       <button id="next">On continue →</button>
       <div id="einstein" aria-hidden="true">
         <div class="bubble" id="einsteinText"></div>
-        <svg class="figure" viewBox="0 0 200 240" aria-hidden="true">
-          <g stroke="#22201b" stroke-linejoin="round" stroke-linecap="round" fill="none">
-            <path d="M5,240 Q15,165 55,150 L145,150 Q185,165 195,240 Z" fill="#22201b" stroke-width="2"/>
-            <path d="M78,150 L100,178 L122,150" fill="#f4efe3" stroke-width="2"/>
-            <path d="M85,166 L100,174 L115,166 L113,188 L100,180 L87,188 Z" fill="#22201b" stroke-width="1.5"/>
-            <path d="M28,118 C18,72 42,38 72,32 C82,16 102,14 116,24 C132,14 158,22 168,44 C196,58 200,98 178,120 C194,130 184,156 164,150 L150,148 Q122,158 100,156 Q78,158 50,148 L36,150 C16,156 6,130 22,120 C10,108 18,92 28,118 Z" fill="#f4efe3" stroke-width="2.5"/>
-            <path d="M28,72 L14,58" stroke-width="2.5"/>
-            <path d="M42,48 L32,32" stroke-width="2.5"/>
-            <path d="M62,32 L60,18" stroke-width="2.5"/>
-            <path d="M138,32 L140,18" stroke-width="2.5"/>
-            <path d="M158,48 L168,32" stroke-width="2.5"/>
-            <path d="M172,72 L186,58" stroke-width="2.5"/>
-            <ellipse cx="56" cy="124" rx="6" ry="9" fill="#e9e2d2" stroke-width="2.5"/>
-            <ellipse cx="144" cy="124" rx="6" ry="9" fill="#e9e2d2" stroke-width="2.5"/>
-            <ellipse cx="100" cy="118" rx="44" ry="50" fill="#e9e2d2" stroke-width="2.5"/>
-            <path d="M71,100 Q83,92 96,102" stroke-width="5"/>
-            <path d="M104,102 Q117,92 129,100" stroke-width="5"/>
-            <circle cx="84" cy="114" r="3.5" fill="#22201b" stroke-width="0"/>
-            <circle cx="116" cy="114" r="3.5" fill="#22201b" stroke-width="0"/>
-            <circle cx="85.5" cy="112.5" r="1" fill="#f4efe3" stroke-width="0"/>
-            <circle cx="117.5" cy="112.5" r="1" fill="#f4efe3" stroke-width="0"/>
-            <path d="M97,124 Q93,142 99,146 Q105,146 103,142 L102,124" stroke-width="2"/>
-            <path d="M60,154 Q78,162 100,156 Q122,162 140,154 Q142,176 122,170 Q112,176 100,174 Q88,176 78,170 Q58,176 60,154 Z" fill="#f4efe3" stroke-width="2.5"/>
-            <path d="M94,166 Q100,169 106,166" stroke-width="1.5"/>
-          </g>
-        </svg>
+        <picture class="figure">
+          <source srcset="assets/einstein.webp" type="image/webp">
+          <img src="assets/einstein.png" alt="" loading="lazy" decoding="async">
+        </picture>
       </div>
     </main>
     <div class="bar bottom">

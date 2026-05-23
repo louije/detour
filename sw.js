@@ -1,4 +1,4 @@
-const CACHE = 'detour-v5';
+const CACHE = 'detour-v6';
 const SHELL = [
   './',
   './index.html',
@@ -8,6 +8,8 @@ const SHELL = [
   './assets/icon-180.png',
   './assets/icon-192.png',
   './assets/icon-512.png',
+  './assets/einstein.webp',
+  './assets/einstein.png',
 ];
 
 self.addEventListener('install', e => {

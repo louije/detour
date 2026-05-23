@@ -180,6 +180,46 @@ function entangle(g,lvl){const byP={};lvl.dots.forEach(d=>{(byP[d.pid]=byP[d.pid
   for(let i=0;i<segs.length;i++){sumLen+=segs[i].len;minLen=Math.min(minLen,segs[i].len);
     for(let j=i+1;j<segs.length;j++)if(segI(segs[i].a,segs[i].b,segs[j].a,segs[j].b))cross++;}
   return {cross,minLen,sumLen};}
+
+/* ===== solver gate =====
+   Quick BFS-based greedy solver. Routes pairs in shortest-first order,
+   one shot per pair. If every pair finds a path on the first try, the
+   puzzle is 'trivial' — a naive thinker would solve it without ever
+   having to undo a route. We penalize that in generateBest. */
+function bfsPath(g,a,b,used,allowRing){
+  if(a===b)return[a];
+  const prev=new Map();prev.set(a,null);
+  const q=[a];let head=0;
+  while(head<q.length){
+    const cur=q[head++];
+    if(cur===b){const path=[];let n=cur;while(n!==null){path.push(n);n=prev.get(n);}return path.reverse();}
+    for(const next of g.adj[cur]){
+      if(used.has(next)||prev.has(next))continue;
+      if(!allowRing&&g.type[next]==='R')continue;
+      prev.set(next,cur);q.push(next);
+    }
+  }
+  return null;
+}
+function solveGreedy(g,lvl){
+  const byP={};lvl.dots.forEach(d=>(byP[d.pid]=byP[d.pid]||[]).push(d));
+  const pairs=Object.values(byP).filter(p=>p.length===2);
+  if(!pairs.length)return true;
+  pairs.sort((p1,p2)=>{
+    const a1=g.pos[p1[0].id],b1=g.pos[p1[1].id],a2=g.pos[p2[0].id],b2=g.pos[p2[1].id];
+    return Math.hypot(a1.x-b1.x,a1.y-b1.y)-Math.hypot(a2.x-b2.x,a2.y-b2.y);
+  });
+  const used=new Set();
+  for(const[a,b]of pairs){used.add(a.id);used.add(b.id);}
+  for(const[a,b]of pairs){
+    used.delete(a.id);used.delete(b.id);
+    const allowRing=a.border&&b.border;
+    const path=bfsPath(g,a.id,b.id,used,allowRing);
+    if(!path)return false;
+    for(const id of path)used.add(id);
+  }
+  return true;
+}
 const CFG={
   3:{gridN:7,nExt:1,extMin:3,extMax:6,lenMin:3,lenMax:6,dotR:0.058,obstacles:0,shapes:SHAPES_REG},
   5:{gridN:8,nExt:2,extMin:3,extMax:8,lenMin:4,lenMax:9,dotR:0.058,obstacles:1,shapes:SHAPES_REG},
@@ -192,17 +232,19 @@ function generateBest(pairs,kind){
   const cfg=Object.assign({pairs},base);
   const dr=base.dotR||0.030,minD2=(2.15*dr)*(2.15*dr);
   let best=null;
-  for(let n=0;n<70;n++){const lvl=carve(g,cfg);if(lvl.pairCount<2)continue;
+  for(let n=0;n<120;n++){const lvl=carve(g,cfg);if(lvl.pairCount<2)continue;
     const m=entangle(g,lvl);
     let tc=0;
     for(let i=0;i<lvl.dots.length;i++){const pi=g.pos[lvl.dots[i].id];
       for(let j=i+1;j<lvl.dots.length;j++){const pj=g.pos[lvl.dots[j].id];
         const dx=pi.x-pj.x,dy=pi.y-pj.y;if(dx*dx+dy*dy<minD2)tc++;}}
-    const s=m.cross*100+m.sumLen*2+(m.minLen<0.15?-400:0)-tc*600;
-    if(!best||s>best.s)best={s,lvl,cross:m.cross};}
-  if(!best)best={lvl:carve(g,cfg),cross:0};
+    const shortPair=(lvl.pairCount<pairs)?(pairs-lvl.pairCount)*1500:0;
+    const trivial=solveGreedy(g,lvl);
+    const s=m.cross*100+m.sumLen*2+(m.minLen<0.15?-400:0)-tc*600-shortPair+(trivial?-900:0);
+    if(!best||s>best.s)best={s,lvl,cross:m.cross,trivial};}
+  if(!best)best={lvl:carve(g,cfg),cross:0,trivial:true};
   const dots=best.lvl.dots.map(d=>({x:g.pos[d.id].x,y:g.pos[d.id].y,pid:d.pid,border:d.border}));
-  return {dots,pairCount:best.lvl.pairCount,cross:best.cross,shape,dotR:base.dotR};
+  return {dots,pairCount:best.lvl.pairCount,cross:best.cross,trivial:best.trivial,shape,dotR:base.dotR};
 }
 
 /* ===== Einstein messages ===== */
@@ -237,7 +279,7 @@ function einsteinMsg(n){return [einsteinPick(E_OPEN),einsteinPick(E_MID),einstei
    ============================================================ */
 const __api={C,GAP,PALETTE,circle,regPoly,blob,makeShape,SHAPES_REG,SHAPES_IRR,
   segDist,makeBar,placeObstacles,edgeHitsObstacle,buildGraph,carve,segI,entangle,
-  CFG,generateBest,E_OPEN,E_MID,E_CLOSE,einsteinMsg};
+  bfsPath,solveGreedy,CFG,generateBest,E_OPEN,E_MID,E_CLOSE,einsteinMsg};
 if(typeof window==='undefined'){
   if(typeof module!=='undefined'&&module.exports)module.exports=__api;
   return;

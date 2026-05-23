@@ -190,9 +190,15 @@ const CFG={3:{gridN:7,nExt:1,extMin:3,extMax:6,lenMin:4,lenMax:8,dotR:0.060},
 function generateBest(pairs,kind){
   const base=CFG[pairs],shape=makeShape(kind),g=buildGraph(shape,base.gridN);
   const cfg=Object.assign({pairs},base);
+  const dr=base.dotR||0.030,minD2=(2.15*dr)*(2.15*dr);
   let best=null;
   for(let n=0;n<70;n++){const lvl=carve(g,cfg);if(lvl.pairCount<2)continue;
-    const m=entangle(g,lvl),s=m.cross*100+m.sumLen*2+(m.minLen<0.15?-400:0);
+    const m=entangle(g,lvl);
+    let tc=0;
+    for(let i=0;i<lvl.dots.length;i++){const pi=g.pos[lvl.dots[i].id];
+      for(let j=i+1;j<lvl.dots.length;j++){const pj=g.pos[lvl.dots[j].id];
+        const dx=pi.x-pj.x,dy=pi.y-pj.y;if(dx*dx+dy*dy<minD2)tc++;}}
+    const s=m.cross*100+m.sumLen*2+(m.minLen<0.15?-400:0)-tc*600;
     if(!best||s>best.s)best={s,lvl,cross:m.cross};}
   if(!best)best={lvl:carve(g,cfg),cross:0};
   const dots=best.lvl.dots.map(d=>({x:g.pos[d.id].x,y:g.pos[d.id].y,pid:d.pid,border:d.border}));
@@ -286,7 +292,19 @@ cv.addEventListener('pointermove',e=>{if(!drag)return;e.preventDefault();
   if(crossesCommitted(last,p)){const pts=drag.points.slice();pts.push(p);drag=null;zap(pts);return;} // ZAP
   const r=regionOf(p);
   if(r!=='edge'){if(drag.mode===null)drag.mode=r;else if(r!==drag.mode)drag.invalid=true;}
-  drag.points.push(p);needRender=true;});
+  drag.points.push(p);
+  if(!drag.invalid&&drag.mode!==null){
+    const d=dotAt(p);
+    if(d&&d.pid===drag.pid&&d!==drag.start){
+      const end={x:d.x,y:d.y};
+      if(crossesCommitted(p,end)){const pts=drag.points.slice();pts.push(end);drag=null;zap(pts);return;}
+      const pts=drag.points.slice();pts.push(end);
+      conns.set(drag.pid,{points:pts});updateLeft();
+      if(conns.size===level.pairCount)onWin();
+      drag=null;needRender=true;return;
+    }
+  }
+  needRender=true;});
 function endDrag(e){if(!drag)return;const p=toNorm(e),d=dotAt(p);
   const last=drag.points[drag.points.length-1];
   if(d&&d.pid===drag.pid&&d!==drag.start&&crossesCommitted(last,{x:d.x,y:d.y})){const pts=drag.points.slice();pts.push({x:d.x,y:d.y});drag=null;zap(pts);return;}

@@ -66,8 +66,8 @@
     <div class="levels" id="levels">
       <button data-p="3">Facile<span>3 paires</span></button>
       <button data-p="5">Moyen<span>5 paires</span></button>
-      <button data-p="8">Corsé<span>8 paires</span></button>
-      <button data-p="10">Expert<span>10 paires</span></button>
+      <button data-p="6">Corsé<span>6 paires</span></button>
+      <button data-p="8">Expert<span>8 paires</span></button>
     </div>
     <div class="foot">Les points posés sur le mur peuvent être reliés par l'extérieur. La forme change à chaque partie.</div>
   </section>
@@ -112,49 +112,90 @@ function regPoly(N,rot,R){
     boundary(t){let d=((t%1)+1)%1*per;for(const x of e){if(d<=x.len){const f=d/x.len;
       return{p:{x:x.a.x+(x.b.x-x.a.x)*f,y:x.a.y+(x.b.y-x.a.y)*f},n:{x:x.nx,y:x.ny}};}d-=x.len;}
       const x=e[e.length-1];return{p:x.b,n:{x:x.nx,y:x.ny}};}};}
-function makeShape(kind){switch(kind){
-  case 'square':  return regPoly(4,Math.PI/4,0.40);
-  case 'triangle':return regPoly(3,-Math.PI/2,0.41);
-  case 'pentagon':return regPoly(5,-Math.PI/2,0.40);
-  case 'hexagon': return regPoly(6,Math.PI/6,0.40);
-  default:        return circle(0.38);}}
-const SHAPES=['circle','square','triangle','pentagon','hexagon'];
+function blob(R,harmonics){
+  const rAt=t=>{let r=R;for(const h of harmonics)r+=h.amp*Math.cos(h.freq*t+h.phase);return r;};
+  const dAt=t=>{let d=0;for(const h of harmonics)d+=-h.amp*h.freq*Math.sin(h.freq*t+h.phase);return d;};
+  const extMax=R+harmonics.reduce((s,h)=>s+Math.abs(h.amp),0);
+  const N=128,verts=[];
+  for(let k=0;k<N;k++){const t=k/N*2*Math.PI,r=rAt(t);verts.push({x:C.x+r*Math.cos(t),y:C.y+r*Math.sin(t)});}
+  return {kind:'poly',ext:extMax,verts,
+    sdf(p){const dx=p.x-C.x,dy=p.y-C.y,d=Math.hypot(dx,dy);if(d<1e-6)return -R;
+      return d-rAt(Math.atan2(dy,dx));},
+    boundary(t){const th=((t%1)+1)%1*2*Math.PI,r=rAt(th),dr=dAt(th);
+      const px=C.x+r*Math.cos(th),py=C.y+r*Math.sin(th);
+      const tx=dr*Math.cos(th)-r*Math.sin(th),ty=dr*Math.sin(th)+r*Math.cos(th);
+      const nx=ty,ny=-tx,L=Math.hypot(nx,ny);
+      return {p:{x:px,y:py},n:{x:nx/L,y:ny/L}};}};}
+function makeShape(kind){
+  const ph=()=>Math.random()*2*Math.PI;
+  switch(kind){
+    case 'square':  return regPoly(4,Math.PI/4,0.40);
+    case 'triangle':return regPoly(3,-Math.PI/2,0.41);
+    case 'pentagon':return regPoly(5,-Math.PI/2,0.40);
+    case 'hexagon': return regPoly(6,Math.PI/6,0.40);
+    case 'clover':  return blob(0.36,[{freq:3,amp:0.07,phase:ph()}]);
+    case 'star':    return blob(0.37,[{freq:5,amp:0.05,phase:ph()}]);
+    case 'peanut':  return blob(0.34,[{freq:2,amp:0.09,phase:ph()}]);
+    case 'egg':     return blob(0.37,[{freq:1,amp:0.04,phase:ph()},{freq:2,amp:0.03,phase:ph()}]);
+    case 'wave':    return blob(0.36,[{freq:4,amp:0.05,phase:ph()},{freq:2,amp:0.03,phase:ph()}]);
+    default:        return circle(0.38);}}
+const SHAPES_REG=['circle','square','triangle','pentagon','hexagon'];
+const SHAPES_IRR=['clover','star','peanut','egg','wave','hexagon','pentagon'];
 
 /* ===== obstacles ===== */
-function makeBar(a,b,r){return{kind:'bar',a,b,r,sdf(p){
+function segDist(p,a,b){
   const ax=p.x-a.x,ay=p.y-a.y,bx=b.x-a.x,by=b.y-a.y;
   const L2=bx*bx+by*by,t=L2?Math.max(0,Math.min(1,(ax*bx+ay*by)/L2)):0;
   const cx=a.x+t*bx,cy=a.y+t*by;
-  return Math.hypot(p.x-cx,p.y-cy)-r;}};}
+  return Math.hypot(p.x-cx,p.y-cy);}
+function makeBar(pts,r){return{kind:'bar',pts,r,sdf(p){
+  let d=9;for(let i=0;i<pts.length-1;i++)d=Math.min(d,segDist(p,pts[i],pts[i+1]));return d-r;}};}
 function placeObstacles(shape,count){
   const out=[];if(!count)return out;
-  const wallBuf=0.045;
+  const wallBuf=0.050;
   for(let i=0;i<count;i++){let placed=false;
-    for(let t=0;t<160&&!placed;t++){
-      const cx=C.x+(Math.random()-0.5)*1.3*shape.ext;
-      const cy=C.y+(Math.random()-0.5)*1.3*shape.ext;
+    for(let t=0;t<200&&!placed;t++){
+      const cx=C.x+(Math.random()-0.5)*1.25*shape.ext;
+      const cy=C.y+(Math.random()-0.5)*1.25*shape.ext;
       const ang=Math.random()*Math.PI;
-      const len=0.20+Math.random()*0.14;
-      const r=0.030+Math.random()*0.012;
+      const len=0.22+Math.random()*0.20;
+      const r=0.006;  // matches main wall border width (PS*0.012 / 2)
       const hx=Math.cos(ang)*len/2,hy=Math.sin(ang)*len/2;
       const a={x:cx-hx,y:cy-hy},b={x:cx+hx,y:cy+hy};
-      // endpoints (with thickness) clear of the wall
-      if(shape.sdf(a)>-(r+wallBuf))continue;
-      if(shape.sdf(b)>-(r+wallBuf))continue;
-      // a few interior samples too, in case the segment grazes the wall
+      let pts=[a,b];
+      // ~60% chance of a bend or a kinked 3-segment polyline
+      const roll=Math.random();
+      if(roll<0.45){
+        const perp={x:-Math.sin(ang),y:Math.cos(ang)};
+        const off=(Math.random()<0.5?-1:1)*(0.035+Math.random()*0.055);
+        const mid={x:cx+perp.x*off,y:cy+perp.y*off};
+        pts=[a,mid,b];
+      }else if(roll<0.60){
+        const perp={x:-Math.sin(ang),y:Math.cos(ang)};
+        const off1=(0.025+Math.random()*0.040),off2=-(0.025+Math.random()*0.040);
+        const m1={x:a.x+(b.x-a.x)*0.33+perp.x*off1,y:a.y+(b.y-a.y)*0.33+perp.y*off1};
+        const m2={x:a.x+(b.x-a.x)*0.66+perp.x*off2,y:a.y+(b.y-a.y)*0.66+perp.y*off2};
+        pts=[a,m1,m2,b];
+      }
+      // all polyline vertices well inside the shape
       let walled=false;
-      for(let s=0.2;s<=0.8&&!walled;s+=0.3){
-        const px=a.x+s*(b.x-a.x),py=a.y+s*(b.y-a.y);
-        if(shape.sdf({x:px,y:py})>-(r+wallBuf))walled=true;}
+      for(const pt of pts){if(shape.sdf(pt)>-(r+wallBuf)){walled=true;break;}}
       if(walled)continue;
-      // clearance from existing bars
+      // segment samples too, in case a span grazes the wall
+      for(let k=0;k<pts.length-1&&!walled;k++){
+        for(let s=0.2;s<=0.8&&!walled;s+=0.3){
+          const px=pts[k].x+s*(pts[k+1].x-pts[k].x),py=pts[k].y+s*(pts[k+1].y-pts[k].y);
+          if(shape.sdf({x:px,y:py})>-(r+wallBuf))walled=true;}}
+      if(walled)continue;
+      // clearance from existing bars (sample along all my segments)
       let ok=true;
       for(const ob of out){
-        for(let s=0;s<=1&&ok;s+=0.1){
-          const px=a.x+s*(b.x-a.x),py=a.y+s*(b.y-a.y);
-          if(ob.sdf({x:px,y:py})<r+0.06)ok=false;}
+        for(let k=0;k<pts.length-1&&ok;k++){
+          for(let s=0;s<=1&&ok;s+=0.125){
+            const px=pts[k].x+s*(pts[k+1].x-pts[k].x),py=pts[k].y+s*(pts[k+1].y-pts[k].y);
+            if(ob.sdf({x:px,y:py})<r+0.07)ok=false;}}
         if(!ok)break;}
-      if(ok){out.push(makeBar(a,b,r));placed=true;}}
+      if(ok){out.push(makeBar(pts,r));placed=true;}}
   }
   return out;
 }
@@ -232,10 +273,11 @@ function entangle(g,lvl){const byP={};lvl.dots.forEach(d=>{(byP[d.pid]=byP[d.pid
   for(let i=0;i<segs.length;i++){sumLen+=segs[i].len;minLen=Math.min(minLen,segs[i].len);
     for(let j=i+1;j<segs.length;j++)if(segI(segs[i].a,segs[i].b,segs[j].a,segs[j].b))cross++;}
   return {cross,minLen,sumLen};}
-const CFG={3:{gridN:7,nExt:1,extMin:3,extMax:6,lenMin:4,lenMax:8,dotR:0.060,obstacles:0},
-           5:{gridN:8,nExt:2,extMin:3,extMax:8,lenMin:5,lenMax:10,dotR:0.058,obstacles:1},
-           8:{gridN:10,nExt:4,extMin:3,extMax:9,lenMin:6,lenMax:12,obstacles:2},
-           10:{gridN:11,nExt:5,extMin:3,extMax:9,lenMin:6,lenMax:13,obstacles:3}};
+const CFG={
+  3:{gridN:7,nExt:1,extMin:3,extMax:6,lenMin:3,lenMax:6,dotR:0.058,obstacles:0,shapes:SHAPES_REG},
+  5:{gridN:8,nExt:2,extMin:3,extMax:8,lenMin:4,lenMax:9,dotR:0.058,obstacles:1,shapes:SHAPES_REG},
+  6:{gridN:8,nExt:3,extMin:3,extMax:8,lenMin:4,lenMax:9,dotR:0.058,obstacles:2,shapes:SHAPES_IRR},
+  8:{gridN:9,nExt:3,extMin:3,extMax:9,lenMin:5,lenMax:10,dotR:0.058,obstacles:3,shapes:SHAPES_IRR}};
 function generateBest(pairs,kind){
   const base=CFG[pairs],shape=makeShape(kind);
   shape.obstacles=placeObstacles(shape,base.obstacles||0);
@@ -320,7 +362,8 @@ function showMenu(){gameEl.classList.add('hidden');menuEl.classList.remove('hidd
 function startGame(p){pairsTarget=p;menuEl.classList.add('hidden');gameEl.classList.remove('hidden');setTimeout(()=>{resize();newLevel();},30);}
 function newLevel(regen){
   try{
-    if(regen!==false){const kind=SHAPES[(Math.random()*SHAPES.length)|0];
+    if(regen!==false){const pool=(CFG[pairsTarget]&&CFG[pairsTarget].shapes)||SHAPES_REG;
+      const kind=pool[(Math.random()*pool.length)|0];
       const r=generateBest(pairsTarget,kind);level=r;shape=r.shape;scoreEl.textContent=r.cross;}
     conns.clear();particles=[];ghosts=[];shakeT=0;animating=false;nextBtn.classList.remove('show');hideEinstein();
     leftEl.textContent=level.pairCount;needRender=true;
@@ -406,17 +449,12 @@ function render(){
   ctx.save();ctx.shadowColor='rgba(0,0,0,0.16)';ctx.shadowBlur=PS*0.03;ctx.shadowOffsetY=PS*0.008;
   ctx.fillStyle='#f4efe3';shapePath();ctx.fill();ctx.restore();
   if(!einsteinShowing&&shape.obstacles&&shape.obstacles.length){
-    ctx.lineCap='round';
+    ctx.strokeStyle='#22201b';ctx.lineWidth=PS*0.012;ctx.lineCap='round';ctx.lineJoin='round';
     for(const ob of shape.obstacles){
-      const ax=X(ob.a.x),ay=Y(ob.a.y),bx=X(ob.b.x),by=Y(ob.b.y),r=ob.r*PS;
-      ctx.save();ctx.shadowColor='rgba(0,0,0,0.20)';ctx.shadowBlur=PS*0.016;ctx.shadowOffsetY=PS*0.004;
-      // outline (thicker ink stroke first)
-      ctx.strokeStyle='#22201b';ctx.lineWidth=2*r+PS*0.012;
-      ctx.beginPath();ctx.moveTo(ax,ay);ctx.lineTo(bx,by);ctx.stroke();
-      ctx.restore();
-      // fill on top
-      ctx.strokeStyle='#e3dac3';ctx.lineWidth=2*r;
-      ctx.beginPath();ctx.moveTo(ax,ay);ctx.lineTo(bx,by);ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(X(ob.pts[0].x),Y(ob.pts[0].y));
+      for(let i=1;i<ob.pts.length;i++)ctx.lineTo(X(ob.pts[i].x),Y(ob.pts[i].y));
+      ctx.stroke();
     }
   }
   if(einsteinShowing&&eImgLoaded){

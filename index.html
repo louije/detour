@@ -212,37 +212,31 @@ eImg.onload=()=>{eImgLoaded=true;needRender=true;};
 eImg.onerror=()=>{if(eImg.src.endsWith('.webp'))eImg.src='assets/einstein.png';};
 eImg.src='assets/einstein.webp';
 let einsteinT=0,einsteinShowing=false;
-const E_OPEN=['Donnerwetter !','Wunderbar !','Ach so !','Mein Gott !','Magnifique !','Sehr élégant !','Tiens donc !','Mein lieber !'];
+const E_OPEN=['Bravo !','Magnifique !','Splendide !','Chapeau !','Bien joué !','Élégant !','Tiens, tiens !','Quelle finesse !'];
 const E_MID=[
-  '{n} graphes planaires soigneusement défaits, sans une arête qui croise.',
-  '{n} parties remportées, autant de chemins disjoints accumulés.',
-  'Vous voilà à {n} victoires — la topologie vous sourit.',
-  'Encore cinq nœuds démêlés ! {n} au total.',
-  '{n} casse-têtes vaincus, sans le moindre détour superflu.',
-  'Vous avez résolu {n} configurations planaires. Kuratowski applaudirait.',
-  'Cinq de plus — {n} chemins parfaits engrangés.',
-  '{n} victoires : vous avez écarté quelque {fact} arrangements possibles.',
-  'À {n} parties, votre intuition combinatoire ne flanche pas.',
-  '{n} graphes domestiqués. Le bestiaire planaire s\'enrichit.',
+  'Vous pensez avec une élégance rare.',
+  'Votre esprit a l\'art du détour.',
+  'L\'intuition vous mène droit au but.',
+  'Vous avez ce petit quelque chose.',
+  'Voilà qui sent l\'intelligence vive.',
+  'Vous voyez ce que les autres ne voient pas.',
+  'Quel joli petit cerveau vous avez là.',
+  '{n} victoires déjà — on a affaire à quelqu\'un.',
+  'À ce niveau-là, je commence à m\'incliner.',
+  'Décidément, vous êtes de la bonne étoffe.',
 ];
 const E_CLOSE=[
-  'Ne croisez jamais ce qui peut être contourné.',
-  'L\'imagination est plus importante que le compteur.',
-  'Restez courbe — l\'espace-temps aussi.',
-  'Le hasard ne joue pas aux dés, mais vous jouez aux nœuds.',
-  'La simplicité est l\'élégance des courbes fermées.',
-  'Encore cinq, et je remonte vous féliciter.',
-  'Sehr gut — continuons.',
-  'On apprend en cherchant les détours.',
+  'Continuons, c\'est passionnant.',
+  'L\'imagination fait tout le reste.',
+  'On ne devine bien qu\'en jouant.',
+  'Encore une, et je vous prends pour modèle.',
+  'Vous me plaisez bien.',
+  'C\'est ainsi qu\'on apprend.',
+  'Restez curieux.',
+  'Cela vous va à merveille.',
 ];
-function einsteinFact(n){if(n<=0)return'1';
-  if(n<=12){let r=1;for(let i=2;i<=n;i++)r*=i;return r.toLocaleString('fr-FR');}
-  let lg=0;for(let i=2;i<=n;i++)lg+=Math.log10(i);
-  const exp=Math.floor(lg),mant=Math.pow(10,lg-exp).toFixed(2);
-  return mant+' × 10^'+exp;}
 function einsteinPick(a){return a[(Math.random()*a.length)|0];}
-function einsteinMsg(n){return [einsteinPick(E_OPEN),einsteinPick(E_MID),einsteinPick(E_CLOSE)].join(' ')
-  .replace(/\{n\}/g,n).replace(/\{fact\}/g,einsteinFact(n));}
+function einsteinMsg(n){return [einsteinPick(E_OPEN),einsteinPick(E_MID),einsteinPick(E_CLOSE)].join(' ').replace(/\{n\}/g,n);}
 function showEinstein(n){einsteinCapEl.textContent=einsteinMsg(n);
   einsteinShowing=true;einsteinT=0;animating=true;needRender=true;
   setTimeout(()=>einsteinCapEl.classList.add('show'),350);}

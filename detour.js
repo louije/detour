@@ -10,7 +10,7 @@ const C={x:0.5,y:0.5},GAP=0.05;
 const PALETTE=['#d23b2e','#e8801f','#caa400','#3f9a3a','#16a8c8','#2f6fd0','#6a3fd0','#c63a9a','#8a5a2b','#566273'];
 
 /* ===== shapes ===== */
-function circle(R){return {kind:'circle',ext:R,R,
+function circle(R){return {kind:'circle',ext:R,R,perim:2*Math.PI*R,
   sdf(p){return Math.hypot(p.x-C.x,p.y-C.y)-R;},
   boundary(t){const a=2*Math.PI*t;return{p:{x:C.x+R*Math.cos(a),y:C.y+R*Math.sin(a)},n:{x:Math.cos(a),y:Math.sin(a)}};}};}
 function regPoly(N,rot,R){
@@ -19,7 +19,7 @@ function regPoly(N,rot,R){
     const mx=(a.x+b.x)/2-C.x,my=(a.y+b.y)/2-C.y;if(nx*mx+ny*my<0){nx=-nx;ny=-ny;}
     const L=Math.hypot(nx,ny);nx/=L;ny/=L;e.push({a,b,nx,ny,len:Math.hypot(b.x-a.x,b.y-a.y)});}
   const per=e.reduce((s,x)=>s+x.len,0);
-  return {kind:'poly',ext:R,verts:v,edges:e,
+  return {kind:'poly',ext:R,verts:v,edges:e,perim:per,
     sdf(p){let m=-9;for(const x of e){const d=(p.x-x.a.x)*x.nx+(p.y-x.a.y)*x.ny;if(d>m)m=d;}return m;},
     boundary(t){let d=((t%1)+1)%1*per;for(const x of e){if(d<=x.len){const f=d/x.len;
       return{p:{x:x.a.x+(x.b.x-x.a.x)*f,y:x.a.y+(x.b.y-x.a.y)*f},n:{x:x.nx,y:x.ny}};}d-=x.len;}
@@ -30,7 +30,8 @@ function blob(R,harmonics){
   const extMax=R+harmonics.reduce((s,h)=>s+Math.abs(h.amp),0);
   const N=128,verts=[];
   for(let k=0;k<N;k++){const t=k/N*2*Math.PI,r=rAt(t);verts.push({x:C.x+r*Math.cos(t),y:C.y+r*Math.sin(t)});}
-  return {kind:'poly',ext:extMax,verts,
+  let perim=0;for(let k=0;k<N;k++){const a=verts[k],b=verts[(k+1)%N];perim+=Math.hypot(a.x-b.x,a.y-b.y);}
+  return {kind:'poly',ext:extMax,verts,perim,
     sdf(p){const dx=p.x-C.x,dy=p.y-C.y,d=Math.hypot(dx,dy);if(d<1e-6)return -R;
       return d-rAt(Math.atan2(dy,dx));},
     boundary(t){const th=((t%1)+1)%1*2*Math.PI,r=rAt(th),dr=dAt(th);
@@ -110,7 +111,7 @@ function placeObstacles(shape,count){
 function edgeHitsObstacle(p1,p2,obstacles){if(!obstacles||!obstacles.length)return false;
   for(let t=0.15;t<=0.85;t+=0.175){
     const x=p1.x+t*(p2.x-p1.x),y=p1.y+t*(p2.y-p1.y);
-    for(const ob of obstacles)if(ob.sdf({x,y})<-0.005)return true;}
+    for(const ob of obstacles)if(ob.sdf({x,y})<0)return true;}
   return false;}
 
 /* ===== graph + generation ===== */
@@ -128,7 +129,9 @@ function buildGraph(shape,gridN){
   for(let i=0;i<gridN;i++)for(let j=0;j<gridN;j++){const id=grid[i+'_'+j];if(!id)continue;
     E(id,grid[(i+1)+'_'+j]);E(id,grid[i+'_'+(j+1)]);}
   const interior=Object.values(grid);
-  const T=Math.max(16,Math.round(gridN*3)),ringIds=[],wallOrder=[];
+  // Wall sample spacing must exceed dot diameter so adjacent border dots
+  // can't overlap. Target spacing 0.135 > dot diameter 0.116.
+  const T=Math.max(12,Math.round((shape.perim||2.5)/0.135)),ringIds=[],wallOrder=[];
   for(let k=0;k<T;k++){const b=shape.boundary(k/T),w=`W${k}`,r=`R${k}`;
     add(w,b.p,'W');add(r,{x:b.p.x+b.n.x*GAP,y:b.p.y+b.n.y*GAP},'R');
     wallOrder.push(w);ringIds.push(r);
@@ -222,17 +225,17 @@ function solveGreedy(g,lvl){
 }
 const CFG={
   3:{gridN:7,nExt:1,extMin:3,extMax:6,lenMin:3,lenMax:6,dotR:0.058,obstacles:0,shapes:SHAPES_REG},
-  5:{gridN:8,nExt:2,extMin:3,extMax:8,lenMin:4,lenMax:9,dotR:0.058,obstacles:1,shapes:SHAPES_REG},
-  6:{gridN:8,nExt:3,extMin:3,extMax:8,lenMin:4,lenMax:9,dotR:0.058,obstacles:2,shapes:SHAPES_IRR},
-  8:{gridN:9,nExt:3,extMin:3,extMax:9,lenMin:5,lenMax:10,dotR:0.058,obstacles:3,shapes:SHAPES_IRR}};
+  5:{gridN:7,nExt:2,extMin:3,extMax:7,lenMin:4,lenMax:8,dotR:0.058,obstacles:1,shapes:SHAPES_REG},
+  6:{gridN:7,nExt:3,extMin:3,extMax:8,lenMin:4,lenMax:8,dotR:0.058,obstacles:2,shapes:SHAPES_IRR},
+  7:{gridN:7,nExt:3,extMin:3,extMax:7,lenMin:4,lenMax:7,dotR:0.058,obstacles:3,shapes:SHAPES_IRR}};
 function generateBest(pairs,kind){
   const base=CFG[pairs],shape=makeShape(kind);
   shape.obstacles=placeObstacles(shape,base.obstacles||0);
   const g=buildGraph(shape,base.gridN);
   const cfg=Object.assign({pairs},base);
   const dr=base.dotR||0.030,minD2=(2.15*dr)*(2.15*dr);
-  let best=null;
-  for(let n=0;n<120;n++){const lvl=carve(g,cfg);if(lvl.pairCount<2)continue;
+  let bestClean=null,bestAny=null;
+  for(let n=0;n<250;n++){const lvl=carve(g,cfg);if(lvl.pairCount<2)continue;
     const m=entangle(g,lvl);
     let tc=0;
     for(let i=0;i<lvl.dots.length;i++){const pi=g.pos[lvl.dots[i].id];
@@ -240,11 +243,13 @@ function generateBest(pairs,kind){
         const dx=pi.x-pj.x,dy=pi.y-pj.y;if(dx*dx+dy*dy<minD2)tc++;}}
     const shortPair=(lvl.pairCount<pairs)?(pairs-lvl.pairCount)*1500:0;
     const trivial=solveGreedy(g,lvl);
-    const s=m.cross*100+m.sumLen*2+(m.minLen<0.15?-400:0)-tc*600-shortPair+(trivial?-900:0);
-    if(!best||s>best.s)best={s,lvl,cross:m.cross,trivial};}
-  if(!best)best={lvl:carve(g,cfg),cross:0,trivial:true};
+    const sBase=m.cross*100+m.sumLen*2+(m.minLen<0.15?-400:0)-shortPair+(trivial?-900:0);
+    const sAny=sBase-tc*600;
+    if(!bestAny||sAny>bestAny.s)bestAny={s:sAny,lvl,cross:m.cross,trivial,tc};
+    if(tc===0&&(!bestClean||sBase>bestClean.s))bestClean={s:sBase,lvl,cross:m.cross,trivial,tc:0};}
+  const best=bestClean||bestAny||{lvl:carve(g,cfg),cross:0,trivial:true,tc:0};
   const dots=best.lvl.dots.map(d=>({x:g.pos[d.id].x,y:g.pos[d.id].y,pid:d.pid,border:d.border}));
-  return {dots,pairCount:best.lvl.pairCount,cross:best.cross,trivial:best.trivial,shape,dotR:base.dotR};
+  return {dots,pairCount:best.lvl.pairCount,cross:best.cross,trivial:best.trivial,tc:best.tc,shape,dotR:base.dotR};
 }
 
 /* ===== Einstein messages ===== */
@@ -308,19 +313,24 @@ function hideEinstein(){einsteinShowing=false;einsteinT=0;
 function loadWins(){try{return parseInt(localStorage.getItem('detour:wins')||'0',10)||0;}catch(_){return 0;}}
 function saveWins(n){try{localStorage.setItem('detour:wins',String(n));}catch(_){ }}
 
-/* ===== state ===== */
-let W=600,H=600,PS=600,OX=0,OY=0,dpr=1;
+/* ===== state =====
+   W, H = stage pixel dimensions. The play coordinate system is [0,1]^2
+   stretched onto W x H so the whole stage is usable. PS = min(W,H) is the
+   reference scale for visual element sizes (dots, line widths) so they
+   don't squish with aspect ratio.
+*/
+let W=600,H=600,PS=600,dpr=1;
 let level=null,shape=null,conns=new Map(),pairsTarget=6,needRender=true;
 const EPS=0.02,dotR=0.030,hitR=0.095,minStep=0.006;
 let particles=[],ghosts=[],shakeT=0,animating=false;
-const X=n=>OX+n*PS, Y=n=>OY+n*PS;
+const X=n=>n*W, Y=n=>n*H;
 
 function regionOf(p){const d=shape.sdf(p);
+  // Thin bars: any point inside (sdf < 0) is forbidden. No 'edge' band — bars
+  // are too thin for slide-along behavior; we just need a hard block.
+  if(shape.obstacles)for(const ob of shape.obstacles){if(ob.sdf(p)<0)return'forbidden';}
   if(d>EPS)return'out';
-  if(d<-EPS){
-    if(shape.obstacles)for(const ob of shape.obstacles){const od=ob.sdf(p);
-      if(od<-EPS)return'forbidden';if(Math.abs(od)<=EPS)return'edge';}
-    return'in';}
+  if(d<-EPS)return'in';
   return'edge';}
 const ccw=(a,b,c)=>(c.y-a.y)*(b.x-a.x)-(b.y-a.y)*(c.x-a.x);
 function segSeg(p1,p2,p3,p4){const d1=ccw(p3,p4,p1),d2=ccw(p3,p4,p2),d3=ccw(p1,p2,p3),d4=ccw(p1,p2,p4);
@@ -343,7 +353,7 @@ function updateLeft(){leftEl.textContent=level.pairCount-conns.size;}
 
 /* ===== input ===== */
 let drag=null;
-function toNorm(e){const r=cv.getBoundingClientRect();return{x:(e.clientX-r.left-OX)/PS,y:(e.clientY-r.top-OY)/PS};}
+function toNorm(e){const r=cv.getBoundingClientRect();return{x:(e.clientX-r.left)/W,y:(e.clientY-r.top)/H};}
 function dotAt(p){let best=null,bd=hitR*hitR;for(const d of level.dots){const dx=d.x-p.x,dy=d.y-p.y,q=dx*dx+dy*dy;if(q<bd){bd=q;best=d;}}return best;}
 function zap(pts){ghosts.push({points:pts,age:0,life:1});shakeT=1;animating=true;needRender=true;}
 cv.addEventListener('pointerdown',e=>{e.preventDefault();if(!level||einsteinShowing)return;const p=toNorm(e),d=dotAt(p);if(!d)return;
@@ -405,7 +415,7 @@ function stepAnim(){
 }
 
 /* ===== render ===== */
-function shapePath(){if(shape.kind==='circle'){ctx.beginPath();ctx.arc(X(C.x),Y(C.y),shape.R*PS,0,7);ctx.closePath();}
+function shapePath(){if(shape.kind==='circle'){ctx.beginPath();ctx.ellipse(X(C.x),Y(C.y),shape.R*W,shape.R*H,0,0,7);ctx.closePath();}
   else{const v=shape.verts;ctx.beginPath();ctx.moveTo(X(v[0].x),Y(v[0].y));for(let i=1;i<v.length;i++)ctx.lineTo(X(v[i].x),Y(v[i].y));ctx.closePath();}}
 function smooth(pts){ctx.beginPath();ctx.moveTo(X(pts[0].x),Y(pts[0].y));
   if(pts.length===2){ctx.lineTo(X(pts[1].x),Y(pts[1].y));return;}
@@ -429,11 +439,13 @@ function render(){
   }
   if(einsteinShowing&&eImgLoaded){
     ctx.save();shapePath();ctx.clip();ctx.globalAlpha=einsteinT;
-    const ext=shape.ext,sz=2*ext*PS;
-    const sx=X(C.x-ext),sy=Y(C.y-ext);
-    const ar=eImg.naturalWidth/eImg.naturalHeight;
-    let dw,dh;if(ar>=1){dh=sz;dw=sz*ar;}else{dw=sz;dh=sz/ar;}
-    ctx.drawImage(eImg,sx+(sz-dw)/2,sy+(sz-dh)/2,dw,dh);
+    const ext=shape.ext;
+    const sx=X(C.x-ext),sy=Y(C.y-ext),sw=2*ext*W,sh=2*ext*H;
+    const iw=eImg.naturalWidth,ih=eImg.naturalHeight;
+    // cover the (now possibly non-square) bounding box
+    const scale=Math.max(sw/iw,sh/ih);
+    const dw=iw*scale,dh=ih*scale;
+    ctx.drawImage(eImg,sx+(sw-dw)/2,sy+(sh-dh)/2,dw,dh);
     ctx.globalAlpha=1;ctx.restore();
   }
   ctx.strokeStyle='#22201b';ctx.lineWidth=PS*0.012;ctx.lineJoin='round';shapePath();ctx.stroke();
@@ -470,7 +482,7 @@ function loop(){try{if(animating){stepAnim();needRender=true;}if(needRender){ren
 function resize(){dpr=Math.min(window.devicePixelRatio||1,2);
   const r=stage.getBoundingClientRect();W=Math.max(240,Math.floor(r.width));H=Math.max(240,Math.floor(r.height));
   if(r.width<10||r.height<10){W=Math.floor(window.innerWidth);H=Math.floor(window.innerHeight*0.8);}
-  PS=Math.min(W,H);OX=(W-PS)/2;OY=(H-PS)/2;cv.style.width=W+'px';cv.style.height=H+'px';needRender=true;}
+  PS=Math.min(W,H);cv.style.width=W+'px';cv.style.height=H+'px';needRender=true;}
 window.addEventListener('resize',()=>{if(!gameEl.classList.contains('hidden'))resize();});
 window.addEventListener('orientationchange',()=>setTimeout(()=>{if(!gameEl.classList.contains('hidden'))resize();},200));
 

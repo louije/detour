@@ -66,48 +66,83 @@ function makeBar(pts,r){return{kind:'bar',pts,r,sdf(p){
   let d=9;for(let i=0;i<pts.length-1;i++)d=Math.min(d,segDist(p,pts[i],pts[i+1]));return d-r;}};}
 function placeObstacles(shape,count){
   const out=[];if(!count)return out;
-  const wallBuf=0.050;
-  for(let i=0;i<count;i++){let placed=false;
-    for(let t=0;t<200&&!placed;t++){
-      const cx=C.x+(Math.random()-0.5)*1.25*shape.ext;
-      const cy=C.y+(Math.random()-0.5)*1.25*shape.ext;
-      const ang=Math.random()*Math.PI;
-      const len=0.22+Math.random()*0.20;
-      const r=0.006;  // matches main wall border width (PS*0.012 / 2)
-      const hx=Math.cos(ang)*len/2,hy=Math.sin(ang)*len/2;
-      const a={x:cx-hx,y:cy-hy},b={x:cx+hx,y:cy+hy};
-      let pts=[a,b];
-      const roll=Math.random();
-      if(roll<0.45){
-        const perp={x:-Math.sin(ang),y:Math.cos(ang)};
-        const off=(Math.random()<0.5?-1:1)*(0.035+Math.random()*0.055);
-        const mid={x:cx+perp.x*off,y:cy+perp.y*off};
-        pts=[a,mid,b];
-      }else if(roll<0.60){
-        const perp={x:-Math.sin(ang),y:Math.cos(ang)};
-        const off1=(0.025+Math.random()*0.040),off2=-(0.025+Math.random()*0.040);
-        const m1={x:a.x+(b.x-a.x)*0.33+perp.x*off1,y:a.y+(b.y-a.y)*0.33+perp.y*off1};
-        const m2={x:a.x+(b.x-a.x)*0.66+perp.x*off2,y:a.y+(b.y-a.y)*0.66+perp.y*off2};
-        pts=[a,m1,m2,b];
-      }
-      let walled=false;
-      for(const pt of pts){if(shape.sdf(pt)>-(r+wallBuf)){walled=true;break;}}
-      if(walled)continue;
-      for(let k=0;k<pts.length-1&&!walled;k++){
-        for(let s=0.2;s<=0.8&&!walled;s+=0.3){
-          const px=pts[k].x+s*(pts[k+1].x-pts[k].x),py=pts[k].y+s*(pts[k+1].y-pts[k].y);
-          if(shape.sdf({x:px,y:py})>-(r+wallBuf))walled=true;}}
-      if(walled)continue;
-      let ok=true;
-      for(const ob of out){
-        for(let k=0;k<pts.length-1&&ok;k++){
-          for(let s=0;s<=1&&ok;s+=0.125){
-            const px=pts[k].x+s*(pts[k+1].x-pts[k].x),py=pts[k].y+s*(pts[k+1].y-pts[k].y);
-            if(ob.sdf({x:px,y:py})<r+0.07)ok=false;}}
-        if(!ok)break;}
-      if(ok){out.push(makeBar(pts,r));placed=true;}}
+  const wallBuf=0.050,r=0.006;
+  for(let i=0;i<count;i++){
+    let bar=null;
+    // ~40% chance of a wall-anchored bar (starts on the boundary, grows
+    // inward like a partition). The rest are floating bars.
+    if(Math.random()<0.4)bar=tryAnchoredBar(shape,out,r,wallBuf);
+    if(!bar)bar=tryFloatingBar(shape,out,r,wallBuf);
+    if(bar)out.push(bar);
   }
   return out;
+}
+function tryFloatingBar(shape,existing,r,wallBuf){
+  for(let t=0;t<200;t++){
+    const cx=C.x+(Math.random()-0.5)*1.25*shape.ext;
+    const cy=C.y+(Math.random()-0.5)*1.25*shape.ext;
+    const ang=Math.random()*Math.PI;
+    const len=0.24+Math.random()*0.24;
+    const hx=Math.cos(ang)*len/2,hy=Math.sin(ang)*len/2;
+    const a={x:cx-hx,y:cy-hy},b={x:cx+hx,y:cy+hy};
+    let pts=[a,b];
+    const roll=Math.random();
+    if(roll<0.50){
+      const perp={x:-Math.sin(ang),y:Math.cos(ang)};
+      const off=(Math.random()<0.5?-1:1)*(0.040+Math.random()*0.065);
+      const mid={x:cx+perp.x*off,y:cy+perp.y*off};
+      pts=[a,mid,b];
+    }else if(roll<0.70){
+      const perp={x:-Math.sin(ang),y:Math.cos(ang)};
+      const off1=(0.030+Math.random()*0.050),off2=-(0.030+Math.random()*0.050);
+      const m1={x:a.x+(b.x-a.x)*0.33+perp.x*off1,y:a.y+(b.y-a.y)*0.33+perp.y*off1};
+      const m2={x:a.x+(b.x-a.x)*0.66+perp.x*off2,y:a.y+(b.y-a.y)*0.66+perp.y*off2};
+      pts=[a,m1,m2,b];
+    }
+    if(!ptsInsideShape(shape,pts,r+wallBuf))continue;
+    if(!ptsClearOfBars(existing,pts,r+0.07))continue;
+    return makeBar(pts,r);
+  }
+  return null;
+}
+function tryAnchoredBar(shape,existing,r,wallBuf){
+  for(let t=0;t<80;t++){
+    const wt=Math.random();
+    const b=shape.boundary(wt);
+    const dx=-b.n.x,dy=-b.n.y;            // inward
+    const perp={x:-dy,y:dx};
+    const len=0.20+Math.random()*0.22;    // 0.20..0.42
+    const start={x:b.p.x+dx*r*1.2,y:b.p.y+dy*r*1.2};
+    const off=(Math.random()-0.5)*0.30*len;
+    const end={x:start.x+dx*len+perp.x*off,y:start.y+dy*len+perp.y*off};
+    if(shape.sdf(end)>-(r+wallBuf))continue;
+    let pts=[start,end];
+    if(Math.random()<0.55){
+      const offM=(Math.random()-0.5)*0.20;
+      const mid={x:start.x+dx*len*0.55+perp.x*offM,y:start.y+dy*len*0.55+perp.y*offM};
+      if(shape.sdf(mid)>-(r+wallBuf*0.5))continue;
+      pts=[start,mid,end];
+    }
+    if(!ptsClearOfBars(existing,pts,r+0.07))continue;
+    return makeBar(pts,r);
+  }
+  return null;
+}
+function ptsInsideShape(shape,pts,buf){
+  for(const pt of pts)if(shape.sdf(pt)>-buf)return false;
+  for(let k=0;k<pts.length-1;k++){
+    for(let s=0.2;s<=0.8;s+=0.3){
+      const px=pts[k].x+s*(pts[k+1].x-pts[k].x),py=pts[k].y+s*(pts[k+1].y-pts[k].y);
+      if(shape.sdf({x:px,y:py})>-buf)return false;}}
+  return true;
+}
+function ptsClearOfBars(existing,pts,gap){
+  for(const ob of existing){
+    for(let k=0;k<pts.length-1;k++){
+      for(let s=0;s<=1;s+=0.125){
+        const px=pts[k].x+s*(pts[k+1].x-pts[k].x),py=pts[k].y+s*(pts[k+1].y-pts[k].y);
+        if(ob.sdf({x:px,y:py})<gap)return false;}}}
+  return true;
 }
 function edgeHitsObstacle(p1,p2,obstacles){if(!obstacles||!obstacles.length)return false;
   for(let t=0.15;t<=0.85;t+=0.175){
@@ -225,10 +260,10 @@ function solveGreedy(g,lvl){
   return true;
 }
 const CFG={
-  3:{gridN:7,nExt:1,extMin:3,extMax:6,lenMin:3,lenMax:6,dotR:0.058,obstacles:0,shapes:SHAPES_ALL},
-  5:{gridN:7,nExt:2,extMin:3,extMax:7,lenMin:4,lenMax:8,dotR:0.058,obstacles:1,shapes:SHAPES_ALL},
-  6:{gridN:7,nExt:3,extMin:3,extMax:8,lenMin:4,lenMax:8,dotR:0.058,obstacles:2,shapes:SHAPES_ALL},
-  7:{gridN:7,nExt:3,extMin:3,extMax:7,lenMin:4,lenMax:7,dotR:0.058,obstacles:3,shapes:SHAPES_ALL}};
+  3:{gridN:7,nExt:1,extMin:3,extMax:6,lenMin:3,lenMax:6,dotR:0.058,obstacles:1,shapes:SHAPES_ALL},
+  5:{gridN:7,nExt:2,extMin:3,extMax:7,lenMin:4,lenMax:8,dotR:0.058,obstacles:2,shapes:SHAPES_ALL},
+  6:{gridN:7,nExt:3,extMin:3,extMax:8,lenMin:4,lenMax:8,dotR:0.058,obstacles:4,shapes:SHAPES_ALL},
+  7:{gridN:7,nExt:3,extMin:3,extMax:7,lenMin:4,lenMax:7,dotR:0.058,obstacles:5,shapes:SHAPES_ALL}};
 function generateBest(pairs,kind){
   const base=CFG[pairs],shape=makeShape(kind);
   shape.obstacles=placeObstacles(shape,base.obstacles||0);

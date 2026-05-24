@@ -41,19 +41,20 @@ function blob(R,harmonics){
       return {p:{x:px,y:py},n:{x:nx/L,y:ny/L}};}};}
 function makeShape(kind){
   const ph=()=>Math.random()*2*Math.PI;
+  const rnd=(lo,hi)=>lo+Math.random()*(hi-lo);
   switch(kind){
-    case 'square':  return regPoly(4,Math.PI/4,0.40);
-    case 'triangle':return regPoly(3,-Math.PI/2,0.41);
-    case 'pentagon':return regPoly(5,-Math.PI/2,0.40);
-    case 'hexagon': return regPoly(6,Math.PI/6,0.40);
-    case 'clover':  return blob(0.36,[{freq:3,amp:0.07,phase:ph()}]);
-    case 'star':    return blob(0.37,[{freq:5,amp:0.05,phase:ph()}]);
-    case 'peanut':  return blob(0.34,[{freq:2,amp:0.09,phase:ph()}]);
-    case 'egg':     return blob(0.37,[{freq:1,amp:0.04,phase:ph()},{freq:2,amp:0.03,phase:ph()}]);
-    case 'wave':    return blob(0.36,[{freq:4,amp:0.05,phase:ph()},{freq:2,amp:0.03,phase:ph()}]);
-    default:        return circle(0.38);}}
-const SHAPES_REG=['circle','square','triangle','pentagon','hexagon'];
-const SHAPES_IRR=['clover','star','peanut','egg','wave','hexagon','pentagon'];
+    case 'square':  return regPoly(4,Math.PI/4,0.42);
+    case 'triangle':return regPoly(3,-Math.PI/2,0.43);
+    case 'pentagon':return regPoly(5,-Math.PI/2,0.42);
+    case 'hexagon': return regPoly(6,Math.PI/6,0.42);
+    case 'clover':  return blob(rnd(0.34,0.38),[{freq:3,amp:rnd(0.060,0.085),phase:ph()}]);
+    case 'star':    return blob(rnd(0.35,0.39),[{freq:5,amp:rnd(0.040,0.060),phase:ph()}]);
+    case 'peanut':  return blob(rnd(0.32,0.36),[{freq:2,amp:rnd(0.075,0.100),phase:ph()}]);
+    case 'egg':     return blob(rnd(0.36,0.39),[{freq:1,amp:rnd(0.030,0.050),phase:ph()},{freq:2,amp:rnd(0.020,0.040),phase:ph()}]);
+    case 'wave':    return blob(rnd(0.34,0.38),[{freq:4,amp:rnd(0.040,0.060),phase:ph()},{freq:2,amp:rnd(0.020,0.040),phase:ph()}]);
+    case 'lobed':   return blob(rnd(0.33,0.36),[{freq:3,amp:rnd(0.050,0.080),phase:ph()},{freq:6,amp:rnd(0.015,0.030),phase:ph()}]);
+    default:        return circle(0.42);}}
+const SHAPES_ALL=['circle','square','triangle','pentagon','hexagon','clover','star','peanut','egg','wave','lobed'];
 
 /* ===== obstacles ===== */
 function segDist(p,a,b){
@@ -224,10 +225,10 @@ function solveGreedy(g,lvl){
   return true;
 }
 const CFG={
-  3:{gridN:7,nExt:1,extMin:3,extMax:6,lenMin:3,lenMax:6,dotR:0.058,obstacles:0,shapes:SHAPES_REG},
-  5:{gridN:7,nExt:2,extMin:3,extMax:7,lenMin:4,lenMax:8,dotR:0.058,obstacles:1,shapes:SHAPES_REG},
-  6:{gridN:7,nExt:3,extMin:3,extMax:8,lenMin:4,lenMax:8,dotR:0.058,obstacles:2,shapes:SHAPES_IRR},
-  7:{gridN:7,nExt:3,extMin:3,extMax:7,lenMin:4,lenMax:7,dotR:0.058,obstacles:3,shapes:SHAPES_IRR}};
+  3:{gridN:7,nExt:1,extMin:3,extMax:6,lenMin:3,lenMax:6,dotR:0.058,obstacles:0,shapes:SHAPES_ALL},
+  5:{gridN:7,nExt:2,extMin:3,extMax:7,lenMin:4,lenMax:8,dotR:0.058,obstacles:1,shapes:SHAPES_ALL},
+  6:{gridN:7,nExt:3,extMin:3,extMax:8,lenMin:4,lenMax:8,dotR:0.058,obstacles:2,shapes:SHAPES_ALL},
+  7:{gridN:7,nExt:3,extMin:3,extMax:7,lenMin:4,lenMax:7,dotR:0.058,obstacles:3,shapes:SHAPES_ALL}};
 function generateBest(pairs,kind){
   const base=CFG[pairs],shape=makeShape(kind);
   shape.obstacles=placeObstacles(shape,base.obstacles||0);
@@ -282,7 +283,7 @@ function einsteinMsg(n){return [einsteinPick(E_OPEN),einsteinPick(E_MID),einstei
 /* ============================================================
    Export gate. Browser code below runs only with a real DOM.
    ============================================================ */
-const __api={C,GAP,PALETTE,circle,regPoly,blob,makeShape,SHAPES_REG,SHAPES_IRR,
+const __api={C,GAP,PALETTE,circle,regPoly,blob,makeShape,SHAPES_ALL,
   segDist,makeBar,placeObstacles,edgeHitsObstacle,buildGraph,carve,segI,entangle,
   bfsPath,solveGreedy,CFG,generateBest,E_OPEN,E_MID,E_CLOSE,einsteinMsg};
 if(typeof window==='undefined'){
@@ -335,14 +336,21 @@ function regionOf(p){const d=shape.sdf(p);
 const ccw=(a,b,c)=>(c.y-a.y)*(b.x-a.x)-(b.y-a.y)*(c.x-a.x);
 function segSeg(p1,p2,p3,p4){const d1=ccw(p3,p4,p1),d2=ccw(p3,p4,p2),d3=ccw(p1,p2,p3),d4=ccw(p1,p2,p4);
   return((d1>0&&d2<0)||(d1<0&&d2>0))&&((d3>0&&d4<0)||(d3<0&&d4>0));}
-function crossesCommitted(a,b){for(const[,c]of conns){const p=c.points;for(let i=0;i<p.length-1;i++)if(segSeg(a,b,p[i],p[i+1]))return true;}return false;}
+// Distance between two segments (0 if they intersect).
+function segSegDist(p1,p2,p3,p4){if(segSeg(p1,p2,p3,p4))return 0;
+  return Math.min(segDist(p1,p3,p4),segDist(p2,p3,p4),segDist(p3,p1,p2),segDist(p4,p1,p2));}
+// Tighter than true intersection: zap if drag passes within CROSS_TOL of
+// any committed segment (1.5x line half-width gives a clear visual gap).
+const CROSS_TOL=0.020;
+function crossesCommitted(a,b){for(const[,c]of conns){const p=c.points;
+  for(let i=0;i<p.length-1;i++)if(segSegDist(a,b,p[i],p[i+1])<CROSS_TOL)return true;}return false;}
 
 /* ===== screens ===== */
 function showMenu(){gameEl.classList.add('hidden');menuEl.classList.remove('hidden');particles=[];ghosts=[];animating=false;nextBtn.classList.remove('show');hideEinstein();}
 function startGame(p){pairsTarget=p;menuEl.classList.add('hidden');gameEl.classList.remove('hidden');setTimeout(()=>{resize();newLevel();},30);}
 function newLevel(regen){
   try{
-    if(regen!==false){const pool=(CFG[pairsTarget]&&CFG[pairsTarget].shapes)||SHAPES_REG;
+    if(regen!==false){const pool=(CFG[pairsTarget]&&CFG[pairsTarget].shapes)||SHAPES_ALL;
       const kind=pool[(Math.random()*pool.length)|0];
       const r=generateBest(pairsTarget,kind);level=r;shape=r.shape;scoreEl.textContent=r.cross;}
     conns.clear();particles=[];ghosts=[];shakeT=0;animating=false;nextBtn.classList.remove('show');hideEinstein();
@@ -363,7 +371,11 @@ cv.addEventListener('pointerdown',e=>{e.preventDefault();if(!level||einsteinShow
 cv.addEventListener('pointermove',e=>{if(!drag)return;e.preventDefault();
   const p=toNorm(e),last=drag.points[drag.points.length-1];
   if(Math.hypot(p.x-last.x,p.y-last.y)<minStep)return;
-  if(crossesCommitted(last,p)){const pts=drag.points.slice();pts.push(p);drag=null;zap(pts);return;} // ZAP
+  // Suppress crossing check until the pointer has moved past a small guard
+  // around the start dot, so the tighter CROSS_TOL doesn't fire immediately
+  // when another line happens to pass near where the drag began.
+  const past=Math.hypot(p.x-drag.start.x,p.y-drag.start.y);
+  if(past>0.06&&crossesCommitted(last,p)){const pts=drag.points.slice();pts.push(p);drag=null;zap(pts);return;}
   const r=regionOf(p);
   if(r==='forbidden')drag.invalid=true;
   else if(r!=='edge'){if(drag.mode===null)drag.mode=r;else if(r!==drag.mode)drag.invalid=true;}

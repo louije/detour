@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<title>Détour</title>
+<meta name="description" content="Reliez les paires sans croiser, par-dessus le mur.">
+<meta name="theme-color" content="#e9e2d2">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Détour">
+<link rel="apple-touch-icon" href="assets/icon-180.png">
+<link rel="icon" type="image/svg+xml" href="assets/icon.svg">
+<link rel="icon" type="image/png" sizes="32x32" href="assets/icon-32.png">
+<link rel="icon" type="image/png" sizes="192x192" href="assets/icon-192.png">
+<link rel="manifest" href="manifest.webmanifest">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,600;1,9..144,400&family=Spline+Sans+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <section id="menu" class="screen">
+    <h1>Détour</h1>
+    <div class="tag">Reliez · sans croiser · par-dessus le mur</div>
+    <div class="levels" id="levels">
+      <button data-p="3">Facile<span>3 paires</span></button>
+      <button data-p="5">Moyen<span>5 paires</span></button>
+      <button data-p="6">Corsé<span>6 paires</span></button>
+      <button data-p="7">Expert<span>7 paires</span></button>
+    </div>
+    <div class="foot">Les points posés sur le mur peuvent être reliés par l'extérieur. La forme change à chaque partie.</div>
+  </section>
+
+  <section id="game" class="screen hidden">
+    <div class="bar top">
+      <button class="btn" id="back">‹ Menu</button>
+      <div class="meta"><span>Restantes&nbsp;<b id="left">·</b></span><span>Nœuds&nbsp;<b id="score">·</b></span></div>
+    </div>
+    <main id="stage">
+      <canvas id="c"></canvas>
+      <div id="einsteinCap" aria-live="polite"></div>
+      <button id="next">On continue →</button>
+    </main>
+    <div class="bar bottom">
+      <button class="btn" id="clearbtn">Effacer</button>
+      <button class="btn" id="newbtn">Nouveau</button>
+    </div>
+  </section>
+
+<script src="detour.js" defer></script>
+<script>
+if('serviceWorker' in navigator){
+  addEventListener('load',()=>{
+    navigator.serviceWorker.register('sw.js',{updateViaCache:'none'})
+      .then(reg=>reg.update()).catch(()=>{});
+  });
+  let refreshing=false;
+  navigator.serviceWorker.addEventListener('controllerchange',()=>{
+    if(refreshing)return;refreshing=true;location.reload();
+  });
+}
+</script>
+</body>
+</html>

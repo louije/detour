@@ -1,0 +1,17 @@
+{
+  "name": "Détour",
+  "short_name": "Détour",
+  "description": "Reliez les paires sans croiser, par-dessus le mur.",
+  "lang": "fr",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#e9e2d2",
+  "theme_color": "#e9e2d2",
+  "icons": [
+    { "src": "assets/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "assets/icon-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "assets/icon.svg",      "sizes": "any",      "type": "image/svg+xml" }
+  ]
+}
